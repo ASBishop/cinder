@@ -1306,6 +1306,66 @@ class VolumeUtilsTestCase(test.TestCase):
                           volume_utils.require_driver_initialized,
                           driver)
 
+    @mock.patch('cinder.db.image_volume_cache_get_by_volume_id')
+    def test_is_image_cache_entry_true(self, mock_cache_get):
+        """Test volume is an image cache entry when cache entry exists."""
+        mock_cache_get.return_value = {'id': 1, 'volume_id': fake.VOLUME_ID}
+        ctx = context.get_admin_context()
+        volume = fake_volume.fake_volume_obj(ctx)
+
+        result = volume_utils.is_image_cache_entry(volume)
+
+        self.assertTrue(result)
+        mock_cache_get.assert_called_once_with(ctx, volume.id)
+
+    @mock.patch('cinder.db.image_volume_cache_get_by_volume_id')
+    def test_is_image_cache_entry_false(self, mock_cache_get):
+        """Test volume isn't an image cache entry when entry doesn't exist."""
+        mock_cache_get.return_value = None
+        ctx = context.get_admin_context()
+        volume = fake_volume.fake_volume_obj(ctx)
+
+        result = volume_utils.is_image_cache_entry(volume)
+
+        self.assertFalse(result)
+        mock_cache_get.assert_called_once_with(ctx, volume.id)
+
+    @mock.patch('cinder.db.image_volume_cache_get_by_volume_id')
+    def test_is_image_cache_entry_exception(self, mock_cache_get):
+        """Test volume returns False when database error occurs."""
+        mock_cache_get.side_effect = Exception("Database error")
+        ctx = context.get_admin_context()
+        volume = fake_volume.fake_volume_obj(ctx)
+
+        result = volume_utils.is_image_cache_entry(volume)
+
+        self.assertFalse(result)
+        mock_cache_get.assert_called_once_with(ctx, volume.id)
+
+    def test_is_image_cache_entry_no_context(self):
+        """Test volume returns False when no context is available."""
+        from cinder import objects
+        volume = objects.Volume()
+
+        result = volume_utils.is_image_cache_entry(volume)
+
+        self.assertFalse(result)
+
+    def test_is_image_cache_entry_not_volume_object(self):
+        """Test returns False when input is not a Volume object."""
+        ctx = context.get_admin_context()
+        snapshot = fake_snapshot.fake_snapshot_obj(ctx)
+
+        result = volume_utils.is_image_cache_entry(snapshot)
+
+        self.assertFalse(result)
+
+    def test_is_image_cache_entry_none_input(self):
+        """Test returns False when input is None."""
+        result = volume_utils.is_image_cache_entry(None)
+
+        self.assertFalse(result)
+
 
 @ddt.ddt
 class LogTracingTestCase(test.TestCase):
